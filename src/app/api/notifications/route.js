@@ -1,4 +1,5 @@
 
+import { safeMutation } from "../../../lib/feature-auth";
 import pool from "../../../lib/db";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
@@ -68,6 +69,13 @@ export async function GET() {
 }
 
 export async function PATCH(request) {
+  if (!safeMutation(request)) {
+    return Response.json(
+      { success: false, message: "Invalid request origin." },
+      { status: 403 }
+    );
+  }
+
   try {
     const userId = await getUserId();
 

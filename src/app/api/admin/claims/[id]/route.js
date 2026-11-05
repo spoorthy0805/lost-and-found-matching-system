@@ -2,8 +2,16 @@
 import pool from "../../../../../lib/db";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import { safeMutation } from "../../../../../lib/feature-auth";
 
 export async function PATCH(request, { params }) {
+  if (!safeMutation(request)) {
+    return Response.json(
+      { success: false, message: "Invalid request origin." },
+      { status: 403 }
+    );
+  }
+
   let client;
 
   try {
@@ -43,7 +51,8 @@ export async function PATCH(request, { params }) {
 
     const { id } = await params;
     const claimId = Number(id);
-    const { decision } = await request.json();
+    const body = await request.json().catch(() => null);
+    const decision = body?.decision;
 
     if (
       !Number.isSafeInteger(claimId) ||
