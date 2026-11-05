@@ -9,6 +9,7 @@ export default function Home() {
   const router = useRouter();
 
   const [loggedIn, setLoggedIn] = useState(false);
+  const [role, setRole] = useState("");
   const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
@@ -26,9 +27,18 @@ export default function Home() {
           cache: "no-store",
         });
 
-        setLoggedIn(response.ok);
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          setLoggedIn(true);
+          setRole(data.user?.role || "");
+        } else {
+          setLoggedIn(false);
+          setRole("");
+        }
       } catch {
         setLoggedIn(false);
+        setRole("");
       } finally {
         setChecking(false);
       }
@@ -65,6 +75,7 @@ export default function Home() {
 
       if (response.ok) {
         setLoggedIn(false);
+        setRole("");
         router.refresh();
       } else {
         alert("Logout failed. Please try again.");
@@ -105,16 +116,39 @@ export default function Home() {
           Lost & Found Matching System
         </h1>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {!checking &&
             (loggedIn ? (
               <>
+                <Link
+                  href="/matches"
+                  className="rounded-lg border border-blue-700 px-5 py-2 font-semibold text-blue-700 hover:bg-blue-50"
+                >
+                  Potential Matches
+                </Link>
+
+                <Link
+                  href="/notifications"
+                  className="rounded-lg border border-blue-700 px-5 py-2 font-semibold text-blue-700 hover:bg-blue-50"
+                >
+                  Notifications
+                </Link>
+
                 <Link
                   href="/my-reports"
                   className="rounded-lg border border-blue-700 px-5 py-2 font-semibold text-blue-700 hover:bg-blue-50"
                 >
                   My Reports
                 </Link>
+
+                {role === "ADMIN" && (
+                  <Link
+                    href="/admin"
+                    className="rounded-lg bg-gray-900 px-5 py-2 font-semibold text-white hover:bg-gray-800"
+                  >
+                    Admin Dashboard
+                  </Link>
+                )}
 
                 <button
                   onClick={handleLogout}

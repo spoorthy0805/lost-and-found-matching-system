@@ -2,11 +2,57 @@
 import pool from "../../../lib/db";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import { spawn } from "node:child_process";
+import path from "node:path";
+
+export const runtime = "nodejs";
+
+function runMatching() {
+  return new Promise((resolve, reject) => {
+    const python =
+      process.env.PYTHON_PATH ||
+      (process.platform === "win32"
+        ? path.join(process.cwd(), ".venv", "Scripts", "python.exe")
+        : path.join(process.cwd(), ".venv", "bin", "python"));
+
+    const script = path.join(process.cwd(), "scripts", "smart_match.py");
+
+    const child = spawn(
+      /* turbopackIgnore: true */
+      python,
+      [script],
+      {
+        cwd: process.cwd(),
+        windowsHide: true,
+      }
+    );
+
+    let output = "";
+    let errors = "";
+
+    child.stdout.on("data", (data) => {
+      output += data.toString();
+    });
+
+    child.stderr.on("data", (data) => {
+      errors += data.toString();
+    });
+
+    child.on("error", reject);
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(output);
+      } else {
+        reject(new Error(errors || `Matching exited with code ${code}`));
+      }
+    });
+  });
+}
 
 export async function POST(request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
+    const token = (await cookies()).get("session")?.value;
 
     if (!token) {
       return Response.json(
@@ -25,11 +71,11 @@ export async function POST(request) {
     let userId;
 
     try {
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-
-      const { payload } = await jwtVerify(token, secret, {
-        algorithms: ["HS256"],
-      });
+      const { payload } = await jwtVerify(
+        token,
+        new TextEncoder().encode(process.env.JWT_SECRET),
+        { algorithms: ["HS256"] }
+      );
 
       userId = Number(payload.sub);
 
@@ -107,11 +153,24 @@ export async function POST(request) {
       ]
     );
 
+    let matchingCompleted = false;
+
+    try {
+      const output = await runMatching();
+      console.log("Automatic AI matching:", output);
+      matchingCompleted = true;
+    } catch (error) {
+      console.error("Automatic AI matching failed:", error.message);
+    }
+
     return Response.json(
       {
         success: true,
-        message: "Item reported successfully!",
+        message: matchingCompleted
+          ? "Item reported successfully! AI matching completed."
+          : "Item reported successfully! AI matching could not complete.",
         item: result.rows[0],
+        matchingCompleted,
       },
       { status: 201 }
     );
@@ -151,10 +210,7 @@ export async function GET() {
     console.error(error.message);
 
     return Response.json(
-      {
-        success: false,
-        message: "Failed to load items",
-      },
+      { success: false, message: "Failed to load items" },
       { status: 500 }
     );
   }
