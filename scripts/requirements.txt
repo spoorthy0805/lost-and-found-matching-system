@@ -1,2 +1,2 @@
-node --env-file=.env.local check-db.mjspsycopg[binary]>=3.2,<4
+psycopg[binary]>=3.2,<4
 sentence-transformers>=3,<6
